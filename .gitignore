@@ -1,0 +1,28 @@
+# CLion files
+.idea
+
+# building files
+CMakeCache*
+CMakeFiles*
+Makefile
+gec
+*.cbp
+gmon.out
+*.so
+*.a
+*.cmake
+
+# file types
+*.user
+*.swp
+
+# testing repositories
+test/
+Testing/
+
+# data
+data/
+ip/
+
+# images and plots
+*.png  
