@@ -10,6 +10,11 @@
 #include "conductivity.h"
 #include "geomagnetic.h"
 #include "cnpy/cnpy.h"
+#include "constants.h"
+#include "hg.h"
+#include "area.h"
+#include "current.h"
+#include "boundary_value.h"
 
 template<typename T>
 T sqr(T x) {
@@ -20,16 +25,6 @@ template<typename T>
 T cub(T x) {
     return x * x * x;
 }
-
-constexpr size_t lat_dim = 180;
-constexpr size_t lon_dim = 360;
-constexpr double delta_lat = 180.0 / double(lat_dim); ///< dimensions of latitude-longitude cell by latitude
-constexpr double delta_lon = 360.0 / double(lon_dim); ///< dimensions of latitude-longitude cell by longitude
-constexpr double z_1 = 21.0; ///< the break of height grid (integer)
-constexpr double z_max = 70.0;
-constexpr size_t n_1 = 11; ///< points per kilometer lower than z_1
-constexpr size_t n_2 = 19; ///< points per upper atmosphere
-constexpr size_t steps = n_1 * size_t(z_1) + n_2; ///< total number of points
 
 /**
  * @brief This is a container of column data
@@ -48,360 +43,6 @@ struct Column {
     double cbot{};
     double cape{};
     bool isThereSource{};
-};
-
-/**
- * @brief (Parent Height Grid) Parent class for classes of height grids
- *
- * It is possible to create several parameterization of height grid
- */
-class ParentHG {
-public:
-    double altitude[steps]{};
-    ParentHG() = default;
-    ~ParentHG() = default;
-};
-
-/**
- * @brief   Linear height grid with a break of a derivative
- *
- *          (Add a picture!)
- */
-class LinHG: public ParentHG {
-public:
-    LinHG(): ParentHG() {
-        for (size_t i = 0; i < steps; i++) {
-            if (i <= n_1 * size_t(z_1)) {
-                altitude[i] = double(i) / double(n_1);
-            } else {
-                altitude[i] = (double(i) - double(n_1) * z_1) * (z_max - z_1) / (n_2 - 1) + z_1;
-            };
-        }
-    }
-};
-
-/**
- * @brief   Parent class for classes of area parameterizations
- *
- *          It is possible to work with different parameterizations
- */
-class ParentArea {
-protected:
-    static constexpr double earth_radius2 = 6370.0 * 6370.0; ///< km^2
-public:
-    ParentArea() = default;
-    ~ParentArea() = default;
-};
-
-/**
- * @brief This class provides a function that calculates area of geographical cell
- */
-class GeoArea : public ParentArea {
-public:
-    GeoArea() : ParentArea() {};
-
-    /**
-     * @brief This compute areas of geographical cells (like on a globe)
-     *
-     * It takes arguments in deg
-     */
-    static double area(double lat_1, double lat_2, double lon_1, double lon_2) {
-        assert(lat_2 > lat_1 and lon_2 > lon_1);
-        assert(lat_2 >=-90 and lat_2 <=90);
-        assert(lat_1 >=-90 and lat_1 <=90);
-        assert(lon_2 >=0 and lon_2 <=360);
-        assert(lon_1 >=0 and lon_1 <=360);
-        return earth_radius2 * (lon_2 - lon_1) / 180.0 * M_PI * (std::sin(lat_2 / 180.0 * M_PI) - std::sin(lat_1 / 180.0 * M_PI));
-    }
-    //    static double area(size_t n, size_t N, size_t m, size_t M, double d_lat, double d_lon) {
-    //        double lat_n = -90.0 + d_lat * double(n);
-    //        if (n != N - 1 and m != M - 1) {
-    //            return fabs(earth_radius2 * M_PI / 180.0 * d_lon *
-    //                        (sin(M_PI / 180.0 * (lat_n + d_lat)) - sin(M_PI / 180.0 * lat_n)));
-    //        } else {
-    //            if (m == M - 1) {
-    //                return fabs(earth_radius2 * M_PI / 180.0 * (360.0 - double(m) * d_lon) *
-    //                            (sin(M_PI / 180.0 * 90.0) - sin(M_PI / 180.0 * lat_n)));
-    //            } else {
-    //                return fabs(earth_radius2 * M_PI / 180.0 * d_lon *
-    //                            (sin(M_PI / 180.0 * 90.0) - sin(M_PI / 180.0 * lat_n)));
-    //            }
-    //        }
-    //    }
-};
-
-/**
- * @brief Parent class for classes of conductivity parameterizations
- */
-class ParentConductivity : public IonMobility, public IonPairProdRate, public IonIonRecombCoeff, public StdAtm {
-protected:
-    static constexpr double sigma_0 = 6.0e-14;
-    static constexpr double H_0 = 6.0; // km
-    constexpr static double e_0 = 1.602176634e-19; // C
-public:
-    typedef void AltClass;
-    double sigma[steps];///<
-
-    ParentConductivity() = default;
-};
-
-/**
- * @brief   parameterization of conductivity which we mainly work with
- *
- *          This class provides function that creates array of conductivity value оn the considered grid
- * @tparam  Alt Height grid
- */
-template<class Alt>
-class Conductivity : public ParentConductivity {
-public:
-    typedef Alt AltClass;
-    static double sigma_func(double z, double lambda, double xi) {
-        const double T = StdAtm::temperature(z);
-        const double p = StdAtm::pressure(z);
-        const double n = std::sqrt(IonPairProdRate::q(z, lambda, xi, p, T) / IonIonRecombCoeff::alpha(z, p, T));
-        return e_0 * (IonMobility::mu_p_get(T, p) + IonMobility::mu_m_get(T, p)) * n;
-    }
-
-    Conductivity(double lambda, double xi) : ParentConductivity() {
-        Alt a{};
-        for (size_t i = 0; i < steps; ++i) {
-            sigma[i] = sigma_func(a.altitude[i], lambda, xi);
-        }
-    }
-};
-
-/**
- * @brief   Simple parameterization of conductivity
- *
- *          This class provides function that creates array of conductivity value оn the considered grid
- * @tparam  Alt Height grid
- */
-template<class Alt>
-class [[maybe_unused]] ExpCond : public ParentConductivity {
-public:
-    typedef Alt AltClass;
-    static double sigma_func(double z, ...) {
-        return sigma_0 * std::exp(z / H_0);
-    };
-
-    ExpCond(...) : ParentConductivity() {
-        Alt a{};
-        for (size_t i = 0; i < steps; ++i) sigma[i] = sigma_func(a.altitude[i]);
-    }
-};
-
-template<class Alt>
-class [[maybe_unused]] ExpCosCond : public ParentConductivity {
-public:
-    typedef Alt AltClass;
-    /**
-     * @param z [km]
-     * @param lat [radian]
-     * @param ...
-     * @return conductivity
-     */
-    static double sigma_func(double z, double lat ...) {
-        return sigma_0 * std::exp(z / H_0) * (1.0 - 1.0/10.0 * std::cos(2*lat));
-    };
-    explicit ExpCosCond(double lat1) : ParentConductivity() {
-        Alt a{};
-        for (size_t q = 0; q < steps; ++q) sigma[q] = sigma_func(a.altitude[q], lat1);
-    }
-};
-
-/**
- * @brief   Constant parameterization of conductivity, it is needed for testing
- *
- *          This class provides function that creates array of conductivity value оn the considered grid
- * @tparam  Alt Height grid
- */
-template<class Alt>
-class [[maybe_unused]] ConstSigma : protected ParentConductivity {
-public:
-    typedef Alt AltClass;
-    static double sigma_func(...) {
-        return sigma_0;
-    }
-
-    ConstSigma(double lambda, double xi) : ParentConductivity() {
-        Alt a{};
-        for (size_t i = 0; i < steps; ++i) {
-            sigma[i] = sigma_func(a.altitude[i], lambda, xi);
-        }
-    }
-};
-
-/**
- * @brief   Parent class for classes of parameterizations of source currents
- */
-class ParentCurrent {
-protected:
-    static constexpr double j_0 = 6.4e-9;
-public:
-    ParentCurrent() = default;
-    double j[steps];
-};
-
-/**
- * @brief   Simplest parameterization of current
- *
- *          This class provides function that creates array of current value оn the considered grid
- * @tparam  Alt Height grid
- */
-template<class Alt>
-class StepCurrent : public ParentCurrent {
-public:
-    static double current_func(double z, ...) {
-        return (z >= 5.0 and z <= 10.0) ? j_0 : 0.0;
-    }
-
-    StepCurrent(...) : ParentCurrent() {
-        Alt a{};
-        for (size_t i = 0; i < steps; ++i) {
-            j[i] = current_func(a.altitude[i]);
-        }
-    }
-};
-
-/**
- * @brief Zero parameterization of current, it is needed for testing
- *
- * This class provides function that creates array of current value оn the considered grid
- * @tparam Alt Height grid
- */
-template<class Alt>
-class [[maybe_unused]] ZeroCurrent : public ParentCurrent {
-public:
-    static double current_func(...) {
-        return 0.0;
-    }
-
-    ZeroCurrent(...) : ParentCurrent() {
-        Alt a{};
-        for (size_t i = 0; i < steps; ++i) {
-            j[i] = current_func();
-        }
-    }
-};
-
-/**
- * @brief Simple parameterization of current
- *
- * This class provides function that creates array of current value оn the considered grid
- * @tparam Alt Height grid
- */
-template<class Alt>
-class [[maybe_unused]] SimpleGeoCurrent : public ParentCurrent {
-public:
-    static double current_func(double z, double lat, ...) {
-        return (std::abs(lat) <= 5 and std::abs(z-7.5) <= 2.5) ? j_0 : 0.0;
-    }
-
-    explicit SimpleGeoCurrent(unsigned lat, ...) : ParentCurrent() {
-        Alt a{};
-        for (size_t i = 0; i < steps; ++i) {
-            j[i] = current_func(a.altitude[i], lat);
-        }
-    }
-};
-
-/**
- * @brief Parameterization of current which we mainly work with
- * This class provides function that creates array of current value оn the considered grid
- * @tparam Alt Height grid
- */
-template<class Alt>
-class GeoCurrent : public ParentCurrent {
-private:
-    static constexpr double cape_0 = 1'000; // J/kg
-public:
-    /**
-     * @brief current_func
-     * @param z     in km
-     * @param lat   in deg
-     * @param lon   in deg
-     * @param cbot  in m
-     * @param ctop  in m
-     * @param cape  in J/kg
-     * @return
-     */
-    double current_func(double z, double lat, double lon, double cbot, double ctop, double cape) {
-        if (cape >= cape_0 and z*1000>=cbot and z*1000<=ctop){
-            return j_0;
-        } else{
-            return 0.0;
-        }
-    }
-
-    GeoCurrent(unsigned lat, unsigned lon, double cbot, double ctop, double cape) : ParentCurrent() {
-        Alt a{};
-        for (size_t i = 0; i < steps; ++i) {
-            j[i] = current_func(a.altitude[i], lat, lon, cbot, ctop, cape);
-        }
-    }
-};
-/**
- * @brief   Parent class for classes that provide parameterization of ionospheric sources
- *
- *          This is not a boundary value, it is something like a boundary value
- */
-class ParentBoundValue {
-protected:
-    static constexpr double phi_0 = 15.0; ///<    [kV]
-    static constexpr double theta_0 = 20.0; ///<  [deg]
-public:
-    ParentBoundValue() = default;
-};
-/**
- * @brief   Class for zero parameterization of phi_s
- *          We mainly use this parameterization
- */
-class [[maybe_unused]] ZeroPhiS : public ParentBoundValue {
-public:
-    static double phi_s(...) {
-        return 0.0;
-    }
-};
-
-/**
- * @brief Volland's parameterization of ionospheric sources
- *
- * @warning Mb it doesn't work, it was writen off some article
- */
-class [[maybe_unused]] VollandPhiS : public ParentBoundValue {
-public:
-
-    /**
-     * @param theta it is a longitude in deg
-     * @return Some k from the article
-     */
-    static double k(double theta) {
-        try {
-            if (theta < theta_0) {
-                throw theta;
-            }
-        } catch (double i) {
-            std::cout << "k(theta) has a wrong argument" << std::endl;
-            exit(-2);
-        }
-        if (theta < 30.0) {
-            return 1.0;
-        } else if (theta >= 30.0 && theta < 90.0) {
-            return (1 + 2 * sin(3.0 * theta)) / 2;
-        }
-        return 0.0;
-    }
-
-    /**
-     * @param theta It is a geomagnetic longitude
-     * @param lambda it is a latitude in deg
-     * @return The value of ionospheric sources potential
-     */
-    static double phi_s(double theta, double lambda) {
-        return phi_0 * sin(lambda) * ((theta < theta_0) ?
-                                          sin(theta) / sin(theta_0) :
-                                          k(theta) * pow(sin(theta_0) / sin(theta), 4));
-    }
 };
 
 /**
@@ -425,29 +66,11 @@ private:
     double calc_IP_Simp() {
         double up = 0.0;
         double down = 0.0;
-        /// initialization of help array
-        //        double ar[2];
-        //        ar[0] = 2;
-        //        ar[1] = 4;
-        //        double help[n_1 * size_t(z_1)];
-        //        assert(n_1 * size_t(z_1) % 2 != 0);
-        //        for (size_t k = 0; k < n_1 * size_t(z_1); k++) {
-        //            if (k != 0 and k != n_1 * size_t(z_1) - 1){
-        //                help[k] = ar[k % 2];
-        //            } else help[k] = 1.0;
-        //            std::cout << help[k] << std::endl;
-        //        }
-
         for (size_t i = 0; i < model.capacity(); ++i) {
             double int_curr_by_cond = 0.0;
             double int_inv_cond = 0.0;
-
-            //            for (size_t k = 0; k < n_1 * size_t(z_1); ++k) {
-            //                int_curr_by_cond += help[k] * model[i].j_s[k] / model[i].sigma[k] / 3.0;
-            //                int_inv_cond += help[k] / model[i].sigma[k] / 3.0;
-            //            }
-            double x1=0, x2=0, x3=0, y1=0, y2=0, y3=0, denom=0;
-            double A=0, B=0, C=0;
+            double x1 = 0, x2 = 0, x3 = 0, y1 = 0, y2 = 0, y3 = 0, denom = 0;
+            double A = 0, B = 0, C = 0;
             for (size_t k = 0; k + 2 < steps; k+=2){
                 x1 = model[i].altitude[k], x2 = model[i].altitude[k+1], x3 = model[i].altitude[k+2];
                 y1 = 1 / model[i].sigma[k], y2 = 1 / model[i].sigma[k+1], y3 = 1 / model[i].sigma[k+2];
@@ -463,9 +86,6 @@ private:
                 C = (x2 * x3 * (x2 - x3) * y1 + x3 * x1 * (x3 - x1) * y2 + x1 * x2 * (x1 - x2) * y3) / denom;
                 int_curr_by_cond += A * (cub(x3) - cub(x1)) / 3 + B * (sqr(x3) - sqr(x1)) / 2 + C * (x3 - x1);
             }
-            //            if (i == 90*360 + 90) {
-            //                std::cout << int_curr_by_cond << "\n";
-            //            }
             up += model[i].area * (int_curr_by_cond - model[i].phi_s) / int_inv_cond;
             down += model[i].area / int_inv_cond;
         }
@@ -487,23 +107,14 @@ private:
                 h = model[i].altitude[q] - model[i].altitude[q - 1];
                 int_curr_by_cond += (model[i].j_s[q] / model[i].sigma[q] + model[i].j_s[q - 1] / model[i].sigma[q - 1]) * h / 2.0;
                 int_inv_cond += (1 / model[i].sigma[q] + 1 / model[i].sigma[q - 1]) * h / 2.0;
-                //                if (i == 90*360 + 90/* and q >= 55 and q <= 110*/) {
-                //                    std::cout << model[i].altitude[q] << "\t" << model[i].j_s[q] << "\t" << model[i].sigma[q] << "\t" << "\n";
-                //                }
-//                if (i == 2*90*360 + 90 * 2 + 1/* and q >= 55 and q <= 110*/) {
-//                    std::cout << model[i].altitude[q] << "\t" << (int_curr_by_cond - model[i].phi_s) << "\t" << int_inv_cond << "\n";
-//                }
             }
-            //            std::cout << i << "\t" << model[i].area << "\n";
             up = up + model[i].area * (int_curr_by_cond - model[i].phi_s) / int_inv_cond;
             down = down + model[i].area / int_inv_cond;
         }
-//        std::cout << up << "\t" << down << std::endl;
-
         return up / down;
     }
 
-    // test
+    /// test
     double calc_IP_test(){
         double sigma_0 = 6.0e-14;
         double H_0 = 6.0;

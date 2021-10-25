@@ -22,7 +22,11 @@ add_executable(gec
         geomagnetic.cpp
         geomagnetic.h
         conductivity.h
-        )
+        constants.h
+        hg.h
+        area.h
+        current.h
+        boundary_value.h)
 
 enable_language(Fortran)
 

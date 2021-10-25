@@ -5,10 +5,10 @@
 #ifndef GLOBAL_ELECTRIC_CIRCUIT_CONDUCTIVITY_H
 #define GLOBAL_ELECTRIC_CIRCUIT_CONDUCTIVITY_H
 
-
 #include <cmath>
 #include <cassert>
 #include "std_atm.h"
+#include "constants.h"
 
 class IonMobility {
 private:
@@ -211,6 +211,85 @@ public:
     static double q(double z, double lambda, double xi, double p, double T) {
         assert(xi >= 0.0 && xi <= 1.0);
         return Q(z, lambda, xi) * p * T_Q / p_Q / T;
+    }
+};
+
+/**
+ * @brief Parent class for classes of conductivity parameterization
+ */
+class ParentConductivity : public IonMobility, public IonPairProdRate, public IonIonRecombCoeff, public StdAtm {
+protected:
+    static constexpr double sigma_0 = 6.0e-14;
+    static constexpr double H_0 = 6.0; // km
+    constexpr static double e_0 = 1.602176634e-19; // C
+public:
+    typedef void AltClass;
+    double sigma[steps];///<
+
+    ParentConductivity() = default;
+};
+
+/**
+ * @brief   parameterization of conductivity which we mainly work with
+ *
+ *          This class provides function that creates array of conductivity value оn the considered grid
+ * @tparam  Alt Height grid
+ */
+template<class Alt>
+class Conductivity : public ParentConductivity {
+public:
+    typedef Alt AltClass;
+    static double sigma_func(double z, double lambda, double xi) {
+        const double T = StdAtm::temperature(z);
+        const double p = StdAtm::pressure(z);
+        const double n = std::sqrt(IonPairProdRate::q(z, lambda, xi, p, T) / IonIonRecombCoeff::alpha(z, p, T));
+        return e_0 * (IonMobility::mu_p_get(T, p) + IonMobility::mu_m_get(T, p)) * n;
+    }
+
+    Conductivity(double lambda, double xi) : ParentConductivity() {
+        Alt a{};
+        for (size_t i = 0; i < steps; ++i) {
+            sigma[i] = sigma_func(a.altitude[i], lambda, xi);
+        }
+    }
+};
+
+/**
+ * @brief   Simple parameterization of conductivity
+ *
+ *          This class provides function that creates array of conductivity value оn the considered grid
+ * @tparam  Alt Height grid
+ */
+template<class Alt>
+class [[maybe_unused]] ExpCond : public ParentConductivity {
+public:
+    typedef Alt AltClass;
+    static double sigma_func(double z, ...) {
+        return sigma_0 * std::exp(z / H_0);
+    };
+
+    ExpCond(...) : ParentConductivity() {
+        Alt a{};
+        for (size_t i = 0; i < steps; ++i) sigma[i] = sigma_func(a.altitude[i]);
+    }
+};
+
+template<class Alt>
+class [[maybe_unused]] ExpCosCond : public ParentConductivity {
+public:
+    typedef Alt AltClass;
+    /**
+     * @param z [km]
+     * @param lat [radian]
+     * @param ...
+     * @return conductivity
+     */
+    static double sigma_func(double z, double lat ...) {
+        return sigma_0 * std::exp(z / H_0) * (1.0 - 1.0/10.0 * std::cos(2*lat));
+    };
+    explicit ExpCosCond(double lat1) : ParentConductivity() {
+        Alt a{};
+        for (size_t q = 0; q < steps; ++q) sigma[q] = sigma_func(a.altitude[q], lat1);
     }
 };
 
