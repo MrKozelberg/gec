@@ -579,8 +579,8 @@ public:
     }
 };
 
-int main(int argc, char* argv[]) {
-    assert(argc == 2);
+int main(/*int argc, char* argv[]*/) {
+/*    assert(argc == 2);
     std::string input(argv[1]);
 
     std::string file_out(input,9,14);
@@ -596,18 +596,18 @@ int main(int argc, char* argv[]) {
         fout << hour << "\t" << m.get_IP() << std::endl;
     }
 
-    fout.close();
+    fout.close();*/
 
-//    std::ofstream fout("/home/mrk/GEC/ip/IP-2016-FULL-A.txt");
-//    if (!fout.is_open()) {
-//        std::cout << "Imposible to find a file" << std::endl;
-//    }
-//    std::string input = "data/DATA-2016-FULL.npz";
-//    for (size_t hour = 0; hour < 25; hour++) {
-//        DataProc<LinHG, ZeroPhiS, Conductivity<LinHG>> m(2015.9, hour, 0.5, input);
-//        fout << hour << "\t" << m.get_IP() << std::endl;
-//    }
-//    fout.close();
+    std::ofstream fout("/home/mrk/gec/ip/IP-2016-FULL-NEW.txt");
+    if (!fout.is_open()) {
+        std::cout << "Imposible to find a file" << std::endl;
+    }
+    std::string input = "/home/mrk/gec/data/DATA-2016-FULL-NEW.npz";
+    for (size_t hour = 0; hour < 25; hour++) {
+        DataProc<LinHG, ZeroPhiS, Conductivity<LinHG>> m(2015.9, hour, 0.5, input);
+        fout << hour << "\t" << m.get_IP() << std::endl;
+    }
+    fout.close();
 
 //        DataProc<LinHG, ZeroPhiS, ExpCond<LinHG>> m(2015.9, 18, 0.5, "data/DATA-2015-12-31-00-NEW.npz");
 //        std::cout << m.get_IP() << std::endl;
