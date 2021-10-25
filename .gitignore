@@ -21,8 +21,8 @@ test/
 Testing/
 
 # data
-data/
-ip/
+# data/
+# ip/
 
 # images and plots
 *.png  
