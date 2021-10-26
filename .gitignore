@@ -25,4 +25,12 @@ Testing/
 # ip/
 
 # images and plots
-*.png  
+*.png
+
+# tex files
+*.aux
+*.fbd_latexmk
+*.fls
+*.log
+*.out
+*.gz  
