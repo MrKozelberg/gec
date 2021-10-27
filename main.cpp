@@ -176,6 +176,7 @@ public:
             //            std::cout << p << "\t" << i1 << "\t\t\t" << i2 << "\t\t" << i2 - i1/c1*(c2-get_IP()) << std::endl;
             phi[p-1] = i2 - i1/c1*(c2-get_IP());
         }
+        fout << model[i].altitude[0] << " " << 0.0 << std::endl;
         for (size_t j = 0; j < steps-1; ++j){
             fout << model[i].altitude[j+1] << " " << phi[j] << std::endl;
         }
@@ -455,6 +456,45 @@ template<class Alt>
 /**
  * @brief The Test1 class
  */
+class Test : public ParentLatLonGrid {
+public:
+    Test(double lambda) : ParentLatLonGrid() {
+        model.reserve(lat_dim * lon_dim);
+        double lat_n = -90.0;
+        for (size_t n = 0; n < lat_dim; ++n) {
+            //std::cout << n << "\t" << lat_n << "\t" << lat_arg(n, delta_lat) << "\n";
+            for (size_t m = 0; m < lon_dim; ++m) {
+                Alt alt{};
+                Conductivity<Alt> cond(lat_arg_m(lon_arg(m), lat_arg(n)/*, year*/), lambda);
+                StepCurrent<Alt> j_test{};
+                ZeroCurrent<Alt> j_zero{};
+
+                size_t n1 = n * lon_dim + m;
+                model[n1].area = 1.0;
+                std::copy(std::begin(alt.altitude), std::end(alt.altitude), std::begin(model[n1].altitude));
+                std::copy(std::begin(cond.sigma), std::end(cond.sigma), std::begin(model[n1].sigma));
+                model[n1].phi_s = ZeroPhiS::phi_s();
+
+                if (std::fabs(lat_arg(n)) < 5.0) {
+                    std::copy(std::begin(j_test.j), std::end(j_test.j), std::begin(model[n1].j_s));
+                } else {
+                    std::copy(std::begin(j_zero.j), std::end(j_zero.j), std::begin(model[n1].j_s));
+                }
+            }
+            lat_n += delta_lat;
+        }
+    }
+};
+
+/**
+ * @brief   This is very simplistic GEC model, using just to test the programme
+ *
+ *          1x1, exp-sigma, simple-geo-j, zero-phi_s
+ */
+template<class Alt>
+/**
+ * @brief The Test1 class
+ */
 class Test1 : public ParentLatLonGrid {
 public:
     Test1() : ParentLatLonGrid() {
@@ -609,14 +649,21 @@ int main(/*int argc, char* argv[]*/) {
 //    }
 //    fout.close();
 
-    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-0.txt", 0, 0.9);
-    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-0.5.txt", 5, 0.9);
-    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-1.txt", 30, 0.9);
+//    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-0.txt", 30, 0);
+//    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-0.5.txt", 30, 0.5);
+//    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-1.txt", 30, 1);
 
 //        DataProc<LinHG, ZeroPhiS, ExpCond<LinHG>> m(2015.9, 18, 0.5, "data/DATA-2015-12-31-00-NEW.npz");
 //        std::cout << m.get_IP() << std::endl;
     //    m.get_phi_trap(90 * 2 * lon_dim + 2 * 90, "plots/90_90_0.txt");
     //    m.get_phi_trap(90 * 2 * lon_dim + 2 * 90 + 1, "plots/90_90_1.txt");
+
+    /**
+     * Test
+     */
+    Test<LinHG> m(0.0);
+    std::cout << m.get_IP() << std::endl;
+    m.get_phi_trap(78 * lon_dim + 90, "/home/mrk/gec/ip/90_90_0.txt");
 
     /**
      * Test 1, the analytic answer is 8736.8, while the programme gives 8904.91 because of numerical integration
