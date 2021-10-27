@@ -21,7 +21,7 @@ public:
 };
 
 /**
- * @brief   Linear height grid with a break of a derivative
+ * @brief   Linear height grid without a break of a derivative
  *
  *          (Add a picture!)
  */
@@ -29,11 +29,12 @@ class LinHG: public ParentHG {
 public:
     LinHG(): ParentHG() {
         for (size_t i = 0; i < steps; i++) {
-            if (i <= n_1 * size_t(z_1)) {
-                altitude[i] = double(i) / double(n_1);
-            } else {
-                altitude[i] = (double(i) - double(n_1) * z_1) * (z_max - z_1) / (n_2 - 1) + z_1;
-            };
+            altitude[i] = double(i) / double(steps - 1) * z_max;
+//            if (i <= n_1 * size_t(z_1)) {
+//                altitude[i] = double(i) / double(n_1);
+//            } else {
+//                altitude[i] = (double(i) - double(n_1) * z_1) * (z_max - z_1) / (n_2 - 1) + z_1;
+//            };
         }
     }
 };

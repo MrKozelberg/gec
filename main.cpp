@@ -134,7 +134,7 @@ private:
 public:
     double phi[steps-1]{}; ///< potential vs height (from 1/n_1 km to ...)
     GECModel() {
-        assert(steps - n_2 % 2 != 0);
+        assert(steps % 2 != 0);
     }
     double get_IP() {
         if (not isIPCalculated) {
@@ -598,16 +598,20 @@ int main(/*int argc, char* argv[]*/) {
 
     fout.close();*/
 
-    std::ofstream fout("/home/mrk/gec/ip/IP-2016-FULL-NEW.txt");
-    if (!fout.is_open()) {
-        std::cout << "Imposible to find a file" << std::endl;
-    }
-    std::string input = "/home/mrk/gec/data/DATA-2016-FULL-NEW.npz";
-    for (size_t hour = 0; hour < 25; hour++) {
-        DataProc<LinHG, ZeroPhiS, Conductivity<LinHG>> m(2015.9, hour, 0.5, input);
-        fout << hour << "\t" << m.get_IP() << std::endl;
-    }
-    fout.close();
+//    std::ofstream fout("/home/mrk/gec/ip/IP-2016-FULL-NEW.txt");
+//    if (!fout.is_open()) {
+//        std::cout << "Imposible to find a file" << std::endl;
+//    }
+//    std::string input = "/home/mrk/gec/data/DATA-2016-FULL-NEW.npz";
+//    for (size_t hour = 0; hour < 25; hour++) {
+//        DataProc<LinHG, ZeroPhiS, Conductivity<LinHG>> m(2015.9, hour, 0.5, input);
+//        fout << hour << "\t" << m.get_IP() << std::endl;
+//    }
+//    fout.close();
+
+    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-0.txt", 0, 0.9);
+    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-0.5.txt", 5, 0.9);
+    test_conductivity("/home/mrk/gec/conductivity/COND-TEST-1.txt", 30, 0.9);
 
 //        DataProc<LinHG, ZeroPhiS, ExpCond<LinHG>> m(2015.9, 18, 0.5, "data/DATA-2015-12-31-00-NEW.npz");
 //        std::cout << m.get_IP() << std::endl;

@@ -9,6 +9,7 @@
 #include <cassert>
 #include "std_atm.h"
 #include "constants.h"
+#include "hg.h"
 
 class IonMobility {
 private:
@@ -224,7 +225,7 @@ protected:
     constexpr static double e_0 = 1.602176634e-19; // C
 public:
     typedef void AltClass;
-    double sigma[steps];///<
+    double sigma[steps]; ///<
 
     ParentConductivity() = default;
 };
@@ -292,5 +293,19 @@ public:
         for (size_t q = 0; q < steps; ++q) sigma[q] = sigma_func(a.altitude[q], lat1);
     }
 };
+
+void test_conductivity(const std::string& filename, double lambda, double xi) {
+    std::ofstream fout(filename);
+    if (!fout.is_open()) {
+        std::cout << "Impossible to find a file" << "\t" << filename << std::endl;
+        exit(-1);
+    }
+    LinHG alt;
+    Conductivity<LinHG> conductivity(lambda, xi);
+    for (size_t i = 0; i < steps; i++) {
+        fout << alt.altitude[i] << "\t" << conductivity.sigma[i] * 9e9 << std::endl;
+    }
+    fout.close();
+}
 
 #endif //GLOBAL_ELECTRIC_CIRCUIT_CONDUCTIVITY_H
