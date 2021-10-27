@@ -1,9 +1,0 @@
-# Fdb version 3
-["pdflatex"] 1635267941 "1.tex" "1.pdf" "1" 1635267941
-  "/usr/share/texlive/texmf-dist/web2c/texmf.cnf" 1621882710 39615 33f7d51cf394547e122c9714408659b1 ""
-  "/usr/share/texlive/texmf-var/web2c/pdftex/pdflatex.fmt" 1632316433 2430020 df7455209227fedc7915618f4b83a534 ""
-  "1.aux" 1635267941 32 3985256e7290058c681f74d7a3565a19 ""
-  "1.tex" 1635267940 2138 d71308d2eab9955833e5ba3ae955bfdc ""
-  (generated)
-  "1.pdf"
-  "1.log"
