@@ -29,7 +29,7 @@ Testing/
 
 # tex files
 *.aux
-*.fbd_latexmk
+*.fdb_latexmk
 *.fls
 *.log
 *.out
