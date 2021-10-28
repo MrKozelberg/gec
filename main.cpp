@@ -661,9 +661,16 @@ int main(/*int argc, char* argv[]*/) {
     /**
      * Test
      */
-    Test<LinHG> m(0.0);
-    std::cout << m.get_IP() << std::endl;
-    m.get_phi_trap(78 * lon_dim + 90, "/home/mrk/gec/ip/90_90_0.txt");
+    Test<LinHG> m0(0.0);
+    m0.get_phi_trap(78 * lon_dim + 90, "/home/mrk/gec/ip/90_90_0.txt");
+    Test<LinHG> m025(0.25);
+    m025.get_phi_trap(78 * lon_dim + 90, "/home/mrk/gec/ip/90_90_025.txt");
+    Test<LinHG> m05(0.5);
+    m05.get_phi_trap(78 * lon_dim + 90, "/home/mrk/gec/ip/90_90_05.txt");
+    Test<LinHG> m075(0.75);
+    m075.get_phi_trap(78 * lon_dim + 90, "/home/mrk/gec/ip/90_90_075.txt");
+    Test<LinHG> m1(1.0);
+    m1.get_phi_trap(78 * lon_dim + 90, "/home/mrk/gec/ip/90_90_1.txt");
 
     /**
      * Test 1, the analytic answer is 8736.8, while the programme gives 8904.91 because of numerical integration
